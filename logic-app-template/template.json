@@ -1,0 +1,129 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_qualifyLead_name": {
+            "defaultValue": "qualifyLead",
+            "type": "String"
+        },
+        "connections_marketoma_externalid": {
+            "defaultValue": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.Web/connections/marketoma",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_qualifyLead_name')]",
+            "location": "swedencentral",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "Method_": {
+                            "defaultValue": "",
+                            "type": "String"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Called_from_AI_Agent": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "aiSummary": {
+                                            "description": "AI generated summary of why the lead is qualified",
+                                            "type": "string"
+                                        },
+                                        "leadScore": {
+                                            "description": "score 1-100 for the lead dec",
+                                            "type": "string"
+                                        },
+                                        "leadID": {
+                                            "description": "Marketo lead id",
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            },
+                            "description": "Use this action to qualify a lead when it matches the ICP and shows strong intent "
+                        }
+                    },
+                    "actions": {
+                        "Respond_to_Agent": {
+                            "runAfter": {
+                                "Request_Campaign": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "statusCode": 200,
+                                "body": "@body('Request_Campaign')"
+                            }
+                        },
+                        "Request_Campaign": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['marketoma']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "body": {
+                                    "input": {
+                                        "leads": [
+                                            {
+                                                "id": "@triggerBody()?['leadID']"
+                                            }
+                                        ],
+                                        "tokens": [
+                                            {
+                                                "name": "aiSummary",
+                                                "value": "@triggerBody()?['aiSummary']"
+                                            },
+                                            {
+                                                "name": "leadScore",
+                                                "value": "@triggerBody()?['leadScore']"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "path": "/rest/v1/campaigns/@{encodeURIComponent('1239')}/trigger.json"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "Method_": {
+                        "value": "POST"
+                    },
+                    "$connections": {
+                        "value": {
+                            "marketoma": {
+                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/marketoma",
+                                "connectionId": "[parameters('connections_marketoma_externalid')]",
+                                "connectionName": "marketoma"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
