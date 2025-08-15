@@ -5,10 +5,6 @@
         "logicAppName": {
             "defaultValue": "qualifyLead",
             "type": "String"
-        },
-        "marketoConnectionId": {
-            "defaultValue": "",
-            "type": "String"
         }
     },
     "variables": {},
@@ -114,13 +110,7 @@
                         "value": "POST"
                     },
                     "$connections": {
-                        "value": {
-                            "marketoma": {
-                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/marketoma",
-                                "connectionId": "[parameters('marketoConnectionId')]",
-                                "connectionName": "marketoma"
-                            }
-                        }
+                        
                     }
                 }
             }

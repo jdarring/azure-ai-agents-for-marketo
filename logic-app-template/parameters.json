@@ -4,9 +4,6 @@
   "parameters": {
     "logicAppName": {
       "value": "qualifyLead"
-    },
-    "marketoConnectionId": {
-      "value": "/subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Web/connections/marketo"
     }
   }
 }
