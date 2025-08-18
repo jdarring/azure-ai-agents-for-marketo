@@ -1,0 +1,140 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "LogicAppName": {
+            "defaultValue": "AI-BDM-Trigger",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('LogicAppName')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ai-foundry-uami": {}
+                }
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "recurrence": {
+                                "interval": 3,
+                                "frequency": "Minute"
+                            },
+                            "evaluatedRecurrence": {
+                                "interval": 3,
+                                "frequency": "Minute"
+                            },
+                            "type": "Recurrence"
+                        }
+                    },
+                    "actions": {
+                        "Get_Leads_By_List_Id": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/rest/v1/list/@{encodeURIComponent('1020')}/leads.json",
+                                "queries": {
+                                    "fields": "@{concat('id,firstName,lastName,email,title,company')}\n"
+                                }
+                            }
+                        },
+                        "For_each": {
+                            "foreach": "@body('Get_Leads_By_List_Id')?['result']",
+                            "actions": {
+                                "Create_Thread": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                               
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "messages": [
+                                                {
+                                                    "role": "user",
+                                                    "content": "@concat('Please evaluate this lead:', string(items('For_each')))"
+                                                }
+                                            ]
+                                        },
+                                        "path": "/threads",
+                                        "queries": {
+                                            "api-version": "2025-05-01"
+                                        }
+                                    }
+                                },
+                                "Create_Run": {
+                                    "runAfter": {
+                                        "Create_Thread": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "assistant_id": "",
+                                            "temperature": 1,
+                                            "top_p": 1
+                                        },
+                                        "path": "/threads/@{encodeURIComponent(body('Create_Thread')['id'])}/runs",
+                                        "queries": {
+                                            "api-version": "2025-05-01"
+                                        }
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Get_Leads_By_List_Id": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach",
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 1
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
