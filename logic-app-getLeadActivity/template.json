@@ -25,11 +25,9 @@
                             "type": "String"
                         },
                         "client_id": {
-                            "defaultValue": "",
                             "type": "String"
                         },
                         "client_secret": {
-                            "defaultValue": "",
                             "type": "String"
                         },
                         "days_of_activity": {
@@ -37,7 +35,6 @@
                             "type": "Int"
                         },
                         "munchkin_id": {
-                            "defaultValue": "",
                             "type": "String"
                         },
                         "activity_type_ids": {
