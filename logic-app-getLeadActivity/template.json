@@ -37,7 +37,7 @@
                             "type": "Int"
                         },
                         "munchkin_id": {
-                            "defaultValue": "126-QRQ-082",
+                            "defaultValue": "",
                             "type": "String"
                         },
                         "activity_type_ids": {
