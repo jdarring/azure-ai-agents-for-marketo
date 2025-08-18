@@ -15,9 +15,7 @@
             "name": "[parameters('LogicAppName')]",
             "identity": {
                 "type": "UserAssigned",
-                "userAssignedIdentities": {
-                    "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ai-foundry-uami": {}
-                }
+                "userAssignedIdentities": {}
             },
             "properties": {
                 "state": "Enabled",
