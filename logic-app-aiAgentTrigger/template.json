@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "LogicAppName": {
-            "defaultValue": "AI-BDM-Trigger",
+            "defaultValue": "agentTrigger",
             "type": "String"
         }
     },
