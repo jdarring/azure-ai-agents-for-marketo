@@ -15,8 +15,7 @@
             "name": "[parameters('LogicAppName')]",
             "location": "[resourceGroup().location]", 
             "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {}
+                "type": "SystemAssigned"
             },
             "properties": {
                 "state": "Enabled",
