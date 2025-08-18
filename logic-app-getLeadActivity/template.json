@@ -2,9 +2,22 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "workflows_getLeadActivity_name": {
+        "LogicAppName": {
             "defaultValue": "getLeadActivity",
             "type": "String"
+        },
+        "MarketoMunchkinId": {
+            "type": "String"
+        },
+        "MarketoClientId": {
+            "type": "String"
+        },
+        "MarketoClientSecret": {
+            "type": "String"
+        },
+        "days_of_activity": {
+            "defaultValue": 30,
+            "type": "Int"
         }
     },
     "variables": {},
@@ -12,7 +25,7 @@
         {
             "type": "Microsoft.Logic/workflows",
             "apiVersion": "2017-07-01",
-            "name": "[parameters('workflows_getLeadActivity_name')]",
+            "name": "[parameters('LogicAppName')]",
             "location": "swedencentral",
             "properties": {
                 "state": "Enabled",
@@ -25,17 +38,20 @@
                             "type": "String"
                         },
                         "client_id": {
-                            "type": "String"
+                            "type": "String",
+                            "defaultValue": "[parameters('MarketoClientId')]"
                         },
                         "client_secret": {
-                            "type": "String"
+                            "type": "String",
+                            "defaultValue": "[parameters('MarketoClientSecret')]"
                         },
                         "days_of_activity": {
                             "defaultValue": 30,
                             "type": "Int"
                         },
                         "munchkin_id": {
-                            "type": "String"
+                            "type": "String",
+                            "defaultValue": "[parameters('MarketoMunchkinId')]"
                         },
                         "activity_type_ids": {
                             "defaultValue": "1,2,3,10,11",
