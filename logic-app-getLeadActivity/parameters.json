@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workflows_getLeadActivity_name": {
+      "value": "getLeadActivity"
+    },
+    "Method_": {
+      "value": "GET"
+    },
+    "client_id": {
+      "value": ""
+    },
+    "client_secret": {
+      "value": ""
+    },
+    "days_of_activity": {
+      "value": 30
+    },
+    "munchkin_id": {
+      "value": ""
+    },
+    "activity_type_ids": {
+      "value": "1,2,3,10,11"
+    },
+    "$connections": {
+      "value": {}
+    }
+  }
+}

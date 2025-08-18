@@ -1,0 +1,2677 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_getLeadActivity_name": {
+            "defaultValue": "getLeadActivity",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_getLeadActivity_name')]",
+            "location": "swedencentral",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "Method_": {
+                            "defaultValue": "",
+                            "type": "String"
+                        },
+                        "client_id": {
+                            "defaultValue": "",
+                            "type": "String"
+                        },
+                        "client_secret": {
+                            "defaultValue": "",
+                            "type": "String"
+                        },
+                        "days_of_activity": {
+                            "defaultValue": 30,
+                            "type": "Int"
+                        },
+                        "munchkin_id": {
+                            "defaultValue": "126-QRQ-082",
+                            "type": "String"
+                        },
+                        "activity_type_ids": {
+                            "defaultValue": "1,2,3,10,11",
+                            "type": "String"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_HTTP_request_is_received": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "leadId": {
+                                            "description": "Marketo ID of lead to retrieve activity for",
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            },
+                            "description": "Gets Marketo activity for given lead ID"
+                        }
+                    },
+                    "actions": {
+                        "Response": {
+                            "runAfter": {
+                                "For_each": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "statusCode": 200,
+                                "body": "@variables('activityArray')"
+                            }
+                        },
+                        "Authorize_Marketo": {
+                            "runAfter": {
+                                "Initialize_variables": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "uri": "https://@{parameters('munchkin_id')}.mktorest.com/identity/oauth/token",
+                                "method": "GET",
+                                "queries": {
+                                    "grant_type": "client_credentials",
+                                    "client_id": "@{parameters('client_id')}",
+                                    "client_secret": "@{parameters('client_secret')}"
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "contentTransfer": {
+                                    "transferMode": "Chunked"
+                                }
+                            }
+                        },
+                        "Get_Paging_Token": {
+                            "runAfter": {
+                                "Authorize_Marketo": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "uri": "https://@{parameters('munchkin_id')}.mktorest.com/rest/v1/activities/pagingtoken.json",
+                                "method": "GET",
+                                "headers": {
+                                    "Authorization": "@{concat('Bearer ',body('Authorize_Marketo')['access_token'])}"
+                                },
+                                "queries": {
+                                    "sinceDatetime": "@{formatDateTime(addDays(utcNow(), sub(0,parameters('days_of_activity'))), 'yyyy-MM-ddTHH:mm:sszzz')}"
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "contentTransfer": {
+                                    "transferMode": "Chunked"
+                                }
+                            }
+                        },
+                        "Get_Activity": {
+                            "runAfter": {
+                                "Get_Paging_Token": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "uri": "https://@{parameters('munchkin_id')}.mktorest.com/rest/v1/activities.json",
+                                "method": "GET",
+                                "headers": {
+                                    "Authorization": "@{concat('Bearer ',body('Authorize_Marketo')['access_token'])}"
+                                },
+                                "queries": {
+                                    "activityTypeIds": "@{parameters('activity_type_ids')}",
+                                    "nextPageToken": "@{body('Get_Paging_Token')['nextPageToken']}",
+                                    "leadIds": "@{triggerBody()?['leadId']}"
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "contentTransfer": {
+                                    "transferMode": "Chunked"
+                                }
+                            }
+                        },
+                        "Initialize_variables": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "activityTypes",
+                                        "type": "array",
+                                        "value": [
+                                            {
+                                                "id": 1,
+                                                "name": "Visit Webpage",
+                                                "description": "User visits a web page",
+                                                "primaryAttribute": {
+                                                    "name": "Webpage ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Query Parameters",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Client IP Address",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referrer URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Search Engine",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Search Query",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Token",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 2,
+                                                "name": "Fill Out Form",
+                                                "description": "User fills out and submits a form on web page",
+                                                "primaryAttribute": {
+                                                    "name": "Webform ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Form Fields",
+                                                        "dataType": "text"
+                                                    },
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Query Parameters",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Client IP Address",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referrer URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 3,
+                                                "name": "Click Link",
+                                                "description": "User clicks link on a page",
+                                                "primaryAttribute": {
+                                                    "name": "Link ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Query Parameters",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Client IP Address",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referrer URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 6,
+                                                "name": "Send Email",
+                                                "description": "Send Marketo Email to a person",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 7,
+                                                "name": "Email Delivered",
+                                                "description": "Marketo Email is delivered to a lead/contact",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 8,
+                                                "name": "Email Bounced",
+                                                "description": "Marketo Email is bounced for a lead",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Category",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Details",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Subcategory",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 9,
+                                                "name": "Unsubscribe Email",
+                                                "description": "Person unsubscribed from Marketo Emails",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Query Parameters",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Client IP Address",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referrer URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Webform ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Form Fields",
+                                                        "dataType": "text"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "Integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 10,
+                                                "name": "Open Email",
+                                                "description": "User opens Marketo Email",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Is Mobile Device",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Is Bot Activity",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 11,
+                                                "name": "Click Email",
+                                                "description": "User clicks on a link in a Marketo Email",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Link",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Link ID",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Is Mobile Device",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Is Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Is Bot Activity",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Bot Activity Pattern",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 12,
+                                                "name": "New Lead",
+                                                "description": "New person/record is added to the lead database",
+                                                "attributes": [
+                                                    {
+                                                        "name": "Source Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Form Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "List Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "SFDC Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Lead Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Created Date",
+                                                        "dataType": "date"
+                                                    },
+                                                    {
+                                                        "name": "API Method Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Modifying User",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Request Id",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 13,
+                                                "name": "Change Data Value",
+                                                "description": "Changed attribute value for a person/record",
+                                                "primaryAttribute": {
+                                                    "name": "Attribute Name",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "New Value",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Old Value",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "API Method Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Modifying User",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Request Id",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 22,
+                                                "name": "Change Score",
+                                                "description": "Modify the value of a score field",
+                                                "primaryAttribute": {
+                                                    "name": "Score Name",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Change Value",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "New Value",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Old Value",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 24,
+                                                "name": "Add to List",
+                                                "description": "Add a person/record to a list",
+                                                "primaryAttribute": {
+                                                    "name": "List ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 25,
+                                                "name": "Remove from List",
+                                                "description": "Remove this lead from a list",
+                                                "primaryAttribute": {
+                                                    "name": "List ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 27,
+                                                "name": "Email Bounced Soft",
+                                                "description": "Campaign Email is bounced soft for a lead",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Category",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Details",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Subcategory",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Test Variant",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Browser",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Platform",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Device",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "User Agent",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 32,
+                                                "name": "Merge Leads",
+                                                "description": "Merge two or more leads into a single record",
+                                                "primaryAttribute": {
+                                                    "name": "Lead ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Merge IDs",
+                                                        "dataType": "array"
+                                                    },
+                                                    {
+                                                        "name": "Master Updated",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Merged in Sales",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Merge Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "API Method Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Modifying User",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Request Id",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 34,
+                                                "name": "Add to Opportunity",
+                                                "description": "Add to an Opportunity",
+                                                "primaryAttribute": {
+                                                    "name": "Oppty ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Is Primary",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Role",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 35,
+                                                "name": "Remove from Opportunity",
+                                                "description": "Remove from an Opportunity",
+                                                "primaryAttribute": {
+                                                    "name": "Oppty ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Is Primary",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Role",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 36,
+                                                "name": "Update Opportunity",
+                                                "description": "Update an Opportunity",
+                                                "primaryAttribute": {
+                                                    "name": "Oppty ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Data Value Changes",
+                                                        "dataType": "complex"
+                                                    },
+                                                    {
+                                                        "name": "Attribute Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "New Value",
+                                                        "dataType": "mixed"
+                                                    },
+                                                    {
+                                                        "name": "Old Value",
+                                                        "dataType": "mixed"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 37,
+                                                "name": "Delete Lead",
+                                                "description": "Delete lead from Marketo database",
+                                                "primaryAttribute": {
+                                                    "name": "Lead ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Remove from CRM",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "API Method Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Modifying User",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Request Id",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 38,
+                                                "name": "Send Alert",
+                                                "description": "Send alert Email about a lead",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Send To Owner",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Send To Smart List",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Send To List",
+                                                        "dataType": "email_list"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 39,
+                                                "name": "Send Sales Email",
+                                                "description": "Send Email using Sales View (Outlook Plugin)",
+                                                "primaryAttribute": {
+                                                    "name": "Artifact ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Sent by",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Template ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Marketo Sales Person ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Sales Email URL",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 40,
+                                                "name": "Open Sales Email",
+                                                "description": "User opens a sales Email",
+                                                "primaryAttribute": {
+                                                    "name": "Artifact ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Sent by",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Template ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Marketo Sales Person ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Sales Email URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Is Bot Activity",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Bot Activity Pattern",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 41,
+                                                "name": "Click Sales Email",
+                                                "description": "User clicks on a link in a sales Email",
+                                                "primaryAttribute": {
+                                                    "name": "Artifact ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Sent by",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Link",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Template ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Is Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Marketo Sales Person ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Sales Email URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Is Bot Activity",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Bot Activity Pattern",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 45,
+                                                "name": "Receive Sales Email",
+                                                "description": "Receive Email using Sales View (Outlook Plugin)",
+                                                "primaryAttribute": {
+                                                    "name": "Artifact ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Received by",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 47,
+                                                "name": "Request Campaign",
+                                                "description": "Campaign membership is requested for lead",
+                                                "primaryAttribute": {
+                                                    "name": "Campaign ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "enum"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 48,
+                                                "name": "Sales Email Bounced",
+                                                "description": "Sales Email bounced",
+                                                "primaryAttribute": {
+                                                    "name": "Artifact ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Sent by",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Category",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Details",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Subcategory",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Template ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Marketo Sales Person ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 100,
+                                                "name": "Change Lead Partition",
+                                                "description": "Lead partition is changed for a lead",
+                                                "primaryAttribute": {
+                                                    "name": "New Partition ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Old Partition ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 101,
+                                                "name": "Change Revenue Stage",
+                                                "description": "Modify the value of a revenue stage field",
+                                                "primaryAttribute": {
+                                                    "name": "Model ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "New Stage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Old Stage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "SLA Expiration",
+                                                        "dataType": "datetime"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "New Stage",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Old Stage",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 102,
+                                                "name": "Change Revenue Stage Manually",
+                                                "description": "Revenue stage is changed manually (e.g. Lead Database or Salesforce)"
+                                            },
+                                            {
+                                                "id": 104,
+                                                "name": "Change Status in Progression",
+                                                "description": "Change a Status in an program progression",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "New Status ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Old Status ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Acquired By",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Success",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Program Member ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Reached Success Date",
+                                                        "dataType": "datetime"
+                                                    },
+                                                    {
+                                                        "name": "Status Reason",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Webinar URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Registration Code",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "New Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Old Status",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 108,
+                                                "name": "Change Segment",
+                                                "description": "Change segment (within a segmentation) for a lead",
+                                                "primaryAttribute": {
+                                                    "name": "Segmentation ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "New Segment ID",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 110,
+                                                "name": "Call Webhook",
+                                                "description": "Call a Webhook",
+                                                "primaryAttribute": {
+                                                    "name": "Webhook",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Error Type",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Response",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 111,
+                                                "name": "Sent Forward to Friend Email",
+                                                "description": "User Forwards Email to a person/record",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Lead ID",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 112,
+                                                "name": "Received Forward to Friend Email",
+                                                "description": "User receives forwarded Email from friend",
+                                                "primaryAttribute": {
+                                                    "name": "Mailing ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Step ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Choice Number",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Lead ID",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 113,
+                                                "name": "Add to Nurture",
+                                                "description": "Add a lead to a nurture program",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Track ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Track Name",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 114,
+                                                "name": "Change Nurture Track",
+                                                "description": "Change the nurture track for a lead",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "New Track ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Previous Track ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Track Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Previous Track Name",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 115,
+                                                "name": "Change Nurture Cadence",
+                                                "description": "Change the nurture cadence for a lead",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "New Nurture Cadence",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Previous Nurture Cadence",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 123,
+                                                "name": "Change Program Member Data",
+                                                "description": "Change Program Member Data",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Attribute Name",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "New Value",
+                                                        "dataType": "mixed"
+                                                    },
+                                                    {
+                                                        "name": "Old Value",
+                                                        "dataType": "mixed"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Attribute Display Name",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 132,
+                                                "name": "Click RTP Call to Action",
+                                                "description": "Clicks personalized call to action",
+                                                "primaryAttribute": {
+                                                    "name": "Asset ID",
+                                                    "dataType": "integer"
+                                                }
+                                            },
+                                            {
+                                                "id": 133,
+                                                "name": "Click Predictive Content",
+                                                "description": "Clicks predictive content",
+                                                "primaryAttribute": {
+                                                    "name": "Asset ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Type",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 136,
+                                                "name": "Add to Named Account",
+                                                "description": "Add a person to a named account",
+                                                "primaryAttribute": {
+                                                    "name": "Named Account ID",
+                                                    "dataType": "integer"
+                                                }
+                                            },
+                                            {
+                                                "id": 137,
+                                                "name": "Remove from Named Account",
+                                                "description": "Remove a person from a named account",
+                                                "primaryAttribute": {
+                                                    "name": "Named Account ID",
+                                                    "dataType": "integer"
+                                                }
+                                            },
+                                            {
+                                                "id": 145,
+                                                "name": "Push Lead to Marketo",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Reason",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "API Method Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Modifying User",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Request Id",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 147,
+                                                "name": "Fill Out LinkedIn Lead Gen Form",
+                                                "description": "User fills out and submits a Lead Gen form on LinkedIn",
+                                                "primaryAttribute": {
+                                                    "name": "Lead Gen Form ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Lead Gen Campaign Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Lead Gen Account Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Lead Gen Creative ID",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 155,
+                                                "name": "Execute Campaign",
+                                                "description": "Invoke an executable campaign",
+                                                "primaryAttribute": {
+                                                    "name": "Campaign ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Qualified",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Used Parent Campaign Token Context",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Token Context Campaign ID",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 157,
+                                                "name": "Reply to Sales Email",
+                                                "description": "User replies to a sales email",
+                                                "primaryAttribute": {
+                                                    "name": "Artifact ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Sent by",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Template ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Campaign Run ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Has Predictive",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Source",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Template Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Sales Campaign Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Marketo Sales Person ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Sales Email URL",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 158,
+                                                "name": "Engaged with a Dialogue",
+                                                "description": "Lead engages with Dynamic Chat dialogue",
+                                                "primaryAttribute": {
+                                                    "name": "Dialogue ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Dialogue Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Transcript",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Summary",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Language",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Workspace",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Discussed Topics",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Score",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 159,
+                                                "name": "Interacted with Document in Dialogue",
+                                                "description": "Lead interacts with a document in Dynamic Chat dialogue",
+                                                "primaryAttribute": {
+                                                    "name": "Document ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Document Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Document URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Dialogue ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Dialogue Name",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Document Opened",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Document Downloaded",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Search Terms",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Language",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Workspace",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 160,
+                                                "name": "Scheduled Meeting in Dialogue",
+                                                "description": "Lead schedules an appointment in Dynamic Chat dialogue",
+                                                "primaryAttribute": {
+                                                    "name": "Agent ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Agent Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Agent Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Dialogue ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Dialogue Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Meeting Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Scheduled For",
+                                                        "dataType": "datetime"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Name",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 161,
+                                                "name": "Reached Dialogue Goal",
+                                                "description": "Lead reaches a goal in Dynamic Chat dialogue",
+                                                "primaryAttribute": {
+                                                    "name": "Dialogue ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Goal Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Dialogue Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Language",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Workspace",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 162,
+                                                "name": "Responded to a poll in webinar",
+                                                "description": "Lead responds to a poll in a webinar event",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Poll question",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Poll response",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 163,
+                                                "name": "Call to action clicked in webinar",
+                                                "description": "Lead clicks on a Call to Action Link in a webinar event",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Link clicked",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 164,
+                                                "name": "Asset downloads in webinar",
+                                                "description": "Lead downloads file/asset in a webinar event",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Downloaded asset",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 165,
+                                                "name": "Asks questions in webinar",
+                                                "description": "Lead asks questions in a webinar event",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Question",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Question was answered",
+                                                        "dataType": "boolean"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 166,
+                                                "name": "Has attended event",
+                                                "description": "Has attended event",
+                                                "primaryAttribute": {
+                                                    "name": "Program ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Number of poll responses",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Number of answered questions",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Number of unanswered questions",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Live watch time by percent",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Number of CTAs clicked",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Number of assets downloaded",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Event Mode",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Watch duration in minutes",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Watched Date",
+                                                        "dataType": "datetime"
+                                                    },
+                                                    {
+                                                        "name": "Webinar Title",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 167,
+                                                "name": "Engaged with an Agent in Dialogue",
+                                                "description": "Lead engages with an Agent in Dynamic Chat dialogue",
+                                                "primaryAttribute": {
+                                                    "name": "Dialogue ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Dialogue Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Lead ID",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Agent ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Agent Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Agent Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Transcript",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Summary",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Discussed Topics",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Score",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 169,
+                                                "name": "Engaged with a Conversational Flow",
+                                                "description": "Lead engages with Dynamic Chat conversational flow",
+                                                "primaryAttribute": {
+                                                    "name": "Conversational Flow ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Conversational Flow Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Transcript",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Summary",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Source Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Source Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Interacted UI Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Language",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Workspace",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Discussed Topics",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Score",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 170,
+                                                "name": "Scheduled Meeting in Conversational Flow",
+                                                "description": "Lead schedules an appointment in Dynamic Chat conversational flow",
+                                                "primaryAttribute": {
+                                                    "name": "Agent ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Agent Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Agent Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversational Flow ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Conversational Flow Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Meeting Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Scheduled For",
+                                                        "dataType": "datetime"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Name",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 171,
+                                                "name": "Reached Conversational Flow Goal",
+                                                "description": "Lead reaches a goal in Dynamic Chat conversational flow",
+                                                "primaryAttribute": {
+                                                    "name": "Conversational Flow ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Goal Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversational Flow Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Language",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Workspace",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 172,
+                                                "name": "Interacted with Document in Conversational Flow",
+                                                "description": "Lead interacts with a document in Dynamic Chat conversational flow",
+                                                "primaryAttribute": {
+                                                    "name": "Document ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Document Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Document URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversational Flow ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Conversational Flow Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Document Opened",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Document Downloaded",
+                                                        "dataType": "boolean"
+                                                    },
+                                                    {
+                                                        "name": "Search Terms",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Language",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Workspace",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 173,
+                                                "name": "Engaged with an Agent in Conversational Flow",
+                                                "description": "Lead engages with an Agent in Dynamic Chat conversational flow",
+                                                "primaryAttribute": {
+                                                    "name": "Conversational Flow ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Conversational Flow Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Lead ID",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Page URL",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Agent ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Agent Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Agent Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Routing Queue Name",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Transcript",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Summary",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Status",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Discussed Topics",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Conversation Score",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 400,
+                                                "name": "Share Content",
+                                                "description": "Share Content",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Social App Type ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Share Message",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 401,
+                                                "name": "Vote in Poll",
+                                                "description": "Vote in a Poll",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Vote Choice",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 402,
+                                                "name": "Sign Up for Referral Offer",
+                                                "description": "Signs Up",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Social App Type ID",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 403,
+                                                "name": "Achieve Goal in Referral",
+                                                "description": "Wins",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Social App Type ID",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 405,
+                                                "name": "Click Shared Link",
+                                                "description": "Click a Shared Link",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Sharer ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Social App Type ID",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 406,
+                                                "name": "Win Sweepstakes",
+                                                "description": "Wins Sweepstakes",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Drawing Date",
+                                                        "dataType": "date"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 407,
+                                                "name": "Enter Sweepstakes",
+                                                "description": "Enters Sweepstakes",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 408,
+                                                "name": "Disqualify Sweepstakes",
+                                                "description": "Disqualifies Sweepstakes",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Disqualified Reason",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 409,
+                                                "name": "Earn Entry in Social App",
+                                                "description": "Earns Entry in Social App",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Social App Type ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Referred Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referee Email",
+                                                        "dataType": "string"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "id": 410,
+                                                "name": "Refer to Social App",
+                                                "description": "Refers to Social App",
+                                                "primaryAttribute": {
+                                                    "name": "Social App ID",
+                                                    "dataType": "integer"
+                                                },
+                                                "attributes": [
+                                                    {
+                                                        "name": "Webpage ID",
+                                                        "dataType": "integer"
+                                                    },
+                                                    {
+                                                        "name": "Social Network",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referred Type",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Referee Email",
+                                                        "dataType": "string"
+                                                    },
+                                                    {
+                                                        "name": "Social App Type ID",
+                                                        "dataType": "integer"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "name": "activityArray",
+                                        "type": "array",
+                                        "value": []
+                                    }
+                                ]
+                            }
+                        },
+                        "For_each": {
+                            "foreach": "@coalesce(body('Get_Activity')?['result'],json('[]'))",
+                            "actions": {
+                                "Type_match": {
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@variables('activityTypes')",
+                                        "where": "@equals(item()?['id'], items('For_each')?['activityTypeId'])"
+                                    }
+                                },
+                                "Append_to_array_variable": {
+                                    "runAfter": {
+                                        "Type_match": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "AppendToArrayVariable",
+                                    "inputs": {
+                                        "name": "activityArray",
+                                        "value": "@json(\n  concat(\n    '{',\n      '\"activity\":\"', body('Type_match')[0]['name'] , '\",\"description\":\"', items('For_each')['primaryAttributeValue'],'\",\"activityDate\":\"',items('For_each')['activityDate'],'\"}'\n  )\n)"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Get_Activity": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "Method_": {
+                        "value": "GET"
+                    },
+                    "$connections": {
+                        "value": {}
+                    }
+                }
+            }
+        }
+    ]
+}
