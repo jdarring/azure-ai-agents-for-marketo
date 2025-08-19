@@ -35,7 +35,7 @@
             "metadata": {
                 "description": "The ID of the AI Agent to be used in the workflow."
             }
-        },
+        }
     },
     "variables": {},
     "resources": [
