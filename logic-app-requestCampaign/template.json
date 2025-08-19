@@ -40,6 +40,19 @@
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
+                        "campaignMapping": {
+                            "defaultValue": {
+                                "qualify": 1239,
+                                "nurture": 1237,
+                                "disqualify": 1236,
+                                "hr": 1240
+                            },
+                            "type": "Object"
+                        },
+                        "defaultCampaignId": {
+                            "defaultValue": 1234,
+                            "type": "Int"
+                        },
                         "$connections": {
                             "defaultValue": {},
                             "type": "Object"
@@ -69,8 +82,8 @@
                         }
                     },
                     "actions": {
-                        "Request_Campaign": {
-                            "runAfter": { "Switch": [ "Succeeded" ] },
+                         "Request_Campaign": {
+                            "runAfter": {},
                             "type": "ApiConnection",
                             "inputs": {
                                 "host": {
@@ -81,31 +94,36 @@
                                 "method": "post",
                                 "body": {
                                     "input": {
-                                        "leads": [ { "id": "@triggerBody()?['leadID']" } ],
+                                        "leads": [
+                                            {
+                                                "id": "@triggerBody()?['leadID']"
+                                            }
+                                        ],
                                         "tokens": [
-                                            { "name": "aiExplanation", "value": "@triggerBody()?['aiExplanation']" },
-                                            { "name": "aiAction", "value": "@triggerBody()?['aiAction']" },
-                                            { "name": "aiCategory", "value": "@triggerBody()?['aiCategory']" },
-                                            { "name": "icpScore", "value": "@{triggerBody()?['icpScore']}" },
-                                            { "name": "leadScore", "value": "@{triggerBody()?['leadScore']}" }
+                                            {
+                                                "name": "aiExplanation",
+                                                "value": "@triggerBody()?['aiExplanation']"
+                                            },
+                                            {
+                                                "name": "aiAction",
+                                                "value": "@triggerBody()?['aiAction']"
+                                            },
+                                            {
+                                                "name": "aiCategory",
+                                                "value": "@triggerBody()?['aiCategory']"
+                                            },
+                                            {
+                                                "name": "icpScore",
+                                                "value": "@{triggerBody()?['icpScore']}"
+                                            },
+                                            {
+                                                "name": "leadScore",
+                                                "value": "@{triggerBody()?['leadScore']}"
+                                            }
                                         ]
                                     }
                                 },
-                                "path": "/rest/v1/campaigns/@{encodeURIComponent(coalesce(variables('smartCampaignMapping')[triggerBody()?['aiAction']], 1234))}/trigger.json"
-                            }
-                        },
-                        "Init_Variables": {
-                            "runAfter": {},
-                            "type": "InitializeVariable",
-                            "inputs": {
-                                "variables": [
-                                    { "name": "smartCampaignId", "type": "integer", "value": 0 },
-                                    {
-                                        "name": "smartCampaignMapping",
-                                        "type": "object",
-                                        "value": { "qualify": 1239, "nurture": 1237, "disqualify": 1236, "hr": 1240 }
-                                    }
-                                ]
+                                "path": "/rest/v1/campaigns/@{encodeURIComponent(coalesce(parameters('campaignMapping')[triggerBody()?['aiAction']], parameters('defaultCampaignId')))}/trigger.json"
                             }
                         },
                         "Respond_to_agent": {
