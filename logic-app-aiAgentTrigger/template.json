@@ -92,11 +92,7 @@
                                     },
                                     "type": "ApiConnection",
                                     "inputs": {
-                                        "host": {
-                                            "connection": {
-                                                "name": "@parameters('$connections')['<connection-name>']['connectionId']"
-                                            }
-                                        },
+                                        "host": {},
                                         "method": "post",
                                         "body": {
                                             "assistant_id": "",
