@@ -2,8 +2,24 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "LogicAppName": {
-            "defaultValue": "agentTrigger",
+        "workflows_AI_BDM_Trigger_name": {
+            "defaultValue": "AI-BDM-Trigger",
+            "type": "String"
+        },
+        "connections_marketoma_externalid": {
+            "defaultValue": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.Web/connections/marketoma",
+            "type": "String"
+        },
+        "connections_azureagentservice_2_externalid": {
+            "defaultValue": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.Web/connections/azureagentservice-2",
+            "type": "String"
+        },
+        "userAssignedIdentities_ai_foundry_uami_externalid": {
+            "defaultValue": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ai-foundry-uami",
+            "type": "String"
+        },
+        "connections_azureagentservice_1_externalid": {
+            "defaultValue": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.Web/connections/azureagentservice-1",
             "type": "String"
         }
     },
@@ -12,10 +28,13 @@
         {
             "type": "Microsoft.Logic/workflows",
             "apiVersion": "2017-07-01",
-            "name": "[parameters('LogicAppName')]",
-            "location": "[resourceGroup().location]", 
+            "name": "[parameters('workflows_AI_BDM_Trigger_name')]",
+            "location": "swedencentral",
             "identity": {
-                "type": "SystemAssigned"
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ai-foundry-uami": {}
+                }
             },
             "properties": {
                 "state": "Enabled",
@@ -52,7 +71,7 @@
                                     }
                                 },
                                 "method": "get",
-                                "path": "/rest/v1/list/@{encodeURIComponent('')}/leads.json",
+                                "path": "/rest/v1/list/@{encodeURIComponent('1020')}/leads.json",
                                 "queries": {
                                     "fields": "@{concat('id,firstName,lastName,email,title,company')}\n"
                                 }
@@ -66,7 +85,7 @@
                                     "inputs": {
                                         "host": {
                                             "connection": {
-                                               "name": "@parameters('$connections')['<connection-name>']['connectionId']"
+                                                "name": "@parameters('$connections')['azureagentservice-1']['connectionId']"
                                             }
                                         },
                                         "method": "post",
@@ -92,10 +111,14 @@
                                     },
                                     "type": "ApiConnection",
                                     "inputs": {
-                                        "host": {},
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureagentservice']['connectionId']"
+                                            }
+                                        },
                                         "method": "post",
                                         "body": {
-                                            "assistant_id": "",
+                                            "assistant_id": "asst_YysXDvjwaFszEJQKzodpxqjQ",
                                             "temperature": 1,
                                             "top_p": 1
                                         },
@@ -124,7 +147,33 @@
                 "parameters": {
                     "$connections": {
                         "value": {
-                            
+                            "marketoma": {
+                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/marketoma",
+                                "connectionId": "[parameters('connections_marketoma_externalid')]",
+                                "connectionName": "marketoma"
+                            },
+                            "azureagentservice-1": {
+                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/azureagentservice",
+                                "connectionId": "[parameters('connections_azureagentservice_2_externalid')]",
+                                "connectionName": "azureagentservice-2",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "[parameters('userAssignedIdentities_ai_foundry_uami_externalid')]"
+                                    }
+                                }
+                            },
+                            "azureagentservice": {
+                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/azureagentservice",
+                                "connectionId": "[parameters('connections_azureagentservice_1_externalid')]",
+                                "connectionName": "azureagentservice-1",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "[parameters('userAssignedIdentities_ai_foundry_uami_externalid')]"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
