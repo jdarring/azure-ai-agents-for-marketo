@@ -3,9 +3,39 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "LogicAppName": {
-            "defaultValue": "agentTrigger",
+            "defaultValue": "AI-BDM-Trigger",
             "type": "String"
-        }
+        },
+        "marketo_connection_name": {
+            "defaultValue": "marketoma",
+            "type": "String",
+            "metadata": {
+                "description": "The name for the new Marketo API Connection resource."
+            }
+        },
+        "ai-agentservice_connection_name": {
+            "defaultValue": "azureagentservice",
+            "type": "String",
+            "metadata": {
+                "description": "The name for the new Azure Agent Service API Connection resource."
+            }
+        },
+        "ai_foundry_uami_externalid": {
+            "defaultValue": "ai-foundry-uami",
+            "type": "String"
+        },
+        "mktoListId": {
+            "type": "Int",
+            "metadata": {
+                "description": "The Marketo List ID to retrieve leads from."
+            }
+        },
+        "ai-agent-id" : {
+            "type": "String",
+            "metadata": {
+                "description": "The ID of the AI Agent to be used in the workflow."
+            }
+        },
     },
     "variables": {},
     "resources": [
@@ -13,9 +43,12 @@
             "type": "Microsoft.Logic/workflows",
             "apiVersion": "2017-07-01",
             "name": "[parameters('LogicAppName')]",
-            "location": "[resourceGroup().location]", 
+            "location": "swedencentral",
             "identity": {
-                "type": "SystemAssigned"
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/resourceGroups/AI-Foundry/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ai-foundry-uami": {}
+                }
             },
             "properties": {
                 "state": "Enabled",
@@ -23,6 +56,18 @@
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
+                        "Agent ID": {
+                            "defaultValue": "[parameters('ai-agent-id')]",
+                            "type": "String"
+                        },
+                        "leadFields": {
+                            "defaultValue": "id,firstName,lastName,email,title,company",
+                            "type": "String"
+                        },
+                        "mktoListId": {
+                            "defaultValue": "[parameters('mktoListId')]",
+                            "type": "Int"
+                        },
                         "$connections": {
                             "defaultValue": {},
                             "type": "Object"
@@ -31,11 +76,11 @@
                     "triggers": {
                         "Recurrence": {
                             "recurrence": {
-                                "interval": 3,
+                                "interval": 10,
                                 "frequency": "Minute"
                             },
                             "evaluatedRecurrence": {
-                                "interval": 3,
+                                "interval": 10,
                                 "frequency": "Minute"
                             },
                             "type": "Recurrence"
@@ -48,13 +93,13 @@
                             "inputs": {
                                 "host": {
                                     "connection": {
-                                       "referenceName": null
+                                        "name": "@parameters('$connections')['marketoma']['connectionId']"
                                     }
                                 },
                                 "method": "get",
-                                "path": "/rest/v1/list/@{encodeURIComponent('')}/leads.json",
+                                "path": "/rest/v1/list/@{encodeURIComponent(parameters('mktoListId'))}/leads.json",
                                 "queries": {
-                                    "fields": "@{concat('id,firstName,lastName,email,title,company')}\n"
+                                    "fields": "@{parameters('leadFields')}\n"
                                 }
                             }
                         },
@@ -66,7 +111,7 @@
                                     "inputs": {
                                         "host": {
                                             "connection": {
-                                               "name": "@parameters('$connections')['<connection-name>']['connectionId']"
+                                                "name": "@parameters('$connections')['azureagentservice']['connectionId']"
                                             }
                                         },
                                         "method": "post",
@@ -92,10 +137,14 @@
                                     },
                                     "type": "ApiConnection",
                                     "inputs": {
-                                        "host": {},
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureagentservice']['connectionId']"
+                                            }
+                                        },
                                         "method": "post",
                                         "body": {
-                                            "assistant_id": "",
+                                            "assistant_id": "@parameters('Agent ID')",
                                             "temperature": 1,
                                             "top_p": 1
                                         },
@@ -124,7 +173,22 @@
                 "parameters": {
                     "$connections": {
                         "value": {
-                            
+                            "marketoma": {
+                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/marketoma",
+                                "connectionId": "[parameters('marketo_connection_name')]",
+                                "connectionName": "marketoma"
+                            },
+                            "azureagentservice": {
+                                "id": "/subscriptions/71f5358c-6c14-4c2f-885f-f83719dbc6ba/providers/Microsoft.Web/locations/swedencentral/managedApis/azureagentservice",
+                                "connectionId": "[parameters('ai-agentservice_connection_name')]",
+                                "connectionName": "azureagentservice-2",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "[parameters('ai_foundry_uami_externalid')]"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
