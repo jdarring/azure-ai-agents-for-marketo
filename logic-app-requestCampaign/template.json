@@ -2,7 +2,7 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "workflows_requestMarketoCampaign_name": {
+        "LogicAppName": {
             "defaultValue": "requestMarketoCampaign",
             "type": "String",
             "metadata": {
@@ -29,7 +29,7 @@
         {
             "type": "Microsoft.Logic/workflows",
             "apiVersion": "2017-07-01",
-            "name": "[parameters('workflows_requestMarketoCampaign_name')]",
+            "name": "[parameters('LogicAppName')]",
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Web/connections', parameters('marketo_connection_name'))]"
@@ -69,18 +69,6 @@
                         }
                     },
                     "actions": {
-                        "Switch": {
-                            "runAfter": { "Init_Variables": [ "Succeeded" ] },
-                            "cases": {
-                                "Qualify": { "case": "qualify", "actions": {} },
-                                "Nurture": { "case": "nurture", "actions": {} },
-                                "Disqualify": { "case": "disqualify", "actions": {} },
-                                "Send_to_HR": { "case": "hr", "actions": {} }
-                            },
-                            "default": { "actions": {} },
-                            "expression": "@triggerBody()?['aiAction']",
-                            "type": "Switch"
-                        },
                         "Request_Campaign": {
                             "runAfter": { "Switch": [ "Succeeded" ] },
                             "type": "ApiConnection",
