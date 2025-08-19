@@ -1,0 +1,104 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "LogicAppName": {
+            "defaultValue": "enrichLeadData",
+            "type": "String"
+        },
+        "ReverseContactKey": {
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('LogicAppName')]",
+            "location": "[resourceGroup().location]", 
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "Method_": {
+                            "defaultValue": "",
+                            "type": "String"
+                        },
+                        "reverse_contact_key": {
+                           "defaultValue": "[parameters('ReverseContactKey')]",
+                            "type": "SecureString"
+                        },
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Request_from_AI_Agent": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "email": {
+                                            "description": "Email address to use for lookup",
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "description": "Enriches lead and company data using LinkedIn data based on their email address"
+                        }
+                    },
+                    "actions": {
+                        "Response": {
+                            "runAfter": {
+                                "LinkedIn_Lookup_with_Reverse_Contact": [
+                                    "Succeeded",
+                                    "Failed"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "statusCode": 200,
+                                "body": "@body('LinkedIn_Lookup_with_Reverse_Contact')"
+                            }
+                        },
+                        "LinkedIn_Lookup_with_Reverse_Contact": {
+                            "runAfter": {},
+                            "type": "Http",
+                            "inputs": {
+                                "uri": "https://api.reversecontact.com/enrichment",
+                                "method": "GET",
+                                "queries": {
+                                    "apikey": "@{parameters('reverse_contact_key')}",
+                                    "email": "@{triggerBody()?['email']}"
+                                }
+                            },
+                            "runtimeConfiguration": {
+                                "contentTransfer": {
+                                    "transferMode": "Chunked"
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "Method_": {
+                        "value": "POST"
+                    },
+                    "reverse_contact_key": {},
+                    "$connections": {
+                        "value": {}
+                    }
+                }
+            }
+        }
+    ]
+}
