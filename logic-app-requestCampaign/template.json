@@ -136,7 +136,7 @@
                     "$connections": {
                         "value": {
                             "marketoma": {
-                                "id": "[subscription().id]/providers/Microsoft.Web/locations/[parameters('location')]/managedApis/marketoma",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/marketoma')]",
                                 "connectionId": "[resourceId('Microsoft.Web/connections', parameters('marketo_connection_name'))]",
                                 "connectionName": "[parameters('marketo_connection_name')]"
                             }
@@ -154,7 +154,7 @@
             "properties": {
                 "displayName": "[parameters('marketo_connection_name')]",
                 "api": {
-                    "id": "[subscription().id]/providers/Microsoft.Web/locations/[parameters('location')]/managedApis/marketoma"
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/marketoma')]"
                 }
             }
         }
