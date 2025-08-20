@@ -1,4 +1,2 @@
- .DS_Store
- /local-only
- local-only/*
- local-only/**/*
+/local-only/
+.DS_Store
